@@ -23,6 +23,8 @@ from settings import (
     BASE_HOST,
     BASE_PORT,
     BASE_URL,
+    FOCAL_MAX_TOKENS,
+    LABEL_MAX_TOKENS,
     MAX_PORTS_TO_SCAN,
     MAX_RETRIES,
     MODEL,
@@ -120,6 +122,7 @@ def _truncate_text(text: str, max_chars: int) -> str:
 def _call_model(client: OpenAI, prompt: str, max_tokens: int, cache_key_suffix: str | None = None) -> str:
     token_param = token_limit_param_name()
     last_err = None
+    request_kwargs = chat_completion_kwargs()
 
     for attempt in range(MAX_RETRIES + 1):
         try:
@@ -128,9 +131,28 @@ def _call_model(client: OpenAI, prompt: str, max_tokens: int, cache_key_suffix: 
                 messages=[{"role": "user", "content": prompt}],
                 **{token_param: max_tokens},
                 **prompt_cache_kwargs(cache_key_suffix),
-                **chat_completion_kwargs(),
+                **request_kwargs,
             )
             return _normalize_label(_parse_model_output(response.choices[0].message.content))
+        except BadRequestError as exc:
+            msg = str(exc).lower()
+            removed_any = False
+            if "unsupported value" in msg and "temperature" in msg and "temperature" in request_kwargs:
+                request_kwargs.pop("temperature", None)
+                removed_any = True
+            if "unsupported value" in msg and "top_p" in msg and "top_p" in request_kwargs:
+                request_kwargs.pop("top_p", None)
+                removed_any = True
+            if "unsupported value" in msg and "reasoning_effort" in msg and "reasoning_effort" in request_kwargs:
+                request_kwargs.pop("reasoning_effort", None)
+                removed_any = True
+            if removed_any:
+                print(
+                    f"[warn] {MODEL} rejected one or more request controls; retrying without unsupported parameters.",
+                    file=sys.stderr,
+                )
+                continue
+            raise
         except (APITimeoutError, APIConnectionError, RateLimitError, InternalServerError) as exc:
             last_err = exc
             if attempt >= MAX_RETRIES:
@@ -274,7 +296,7 @@ def label_row(
             client=client,
             prompt_template=task_prompts[task],
             text=text,
-            max_tokens=32,
+            max_tokens=LABEL_MAX_TOKENS,
             cutoffs=LABEL_CUTOFFS,
             cache_key_suffix=f"task:{task}",
         )
@@ -285,7 +307,7 @@ def label_row(
                 client=client,
                 prompt_template=focal_prompt,
                 text=text,
-                max_tokens=8,
+                max_tokens=FOCAL_MAX_TOKENS,
                 cutoffs=FOCAL_CUTOFFS,
                 cache_key_suffix="focal",
             )

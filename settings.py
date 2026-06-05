@@ -63,6 +63,9 @@ TOKEN_LIMIT_PARAM = env_str("LLM_TOKEN_LIMIT_PARAM", "")
 REQUEST_TIMEOUT = float(env_str("LLM_REQUEST_TIMEOUT", "10"))
 MAX_RETRIES = env_int("LLM_MAX_RETRIES", 2)
 RETRY_BACKOFF_SECONDS = float(env_str("LLM_RETRY_BACKOFF_SECONDS", "2"))
+REASONING_EFFORT = env_str("LLM_REASONING_EFFORT", "")
+LABEL_MAX_TOKENS = env_int("LLM_LABEL_MAX_TOKENS", 32)
+FOCAL_MAX_TOKENS = env_int("LLM_FOCAL_MAX_TOKENS", 8)
 PROMPT_CACHE_KEY_PREFIX = env_str("LLM_PROMPT_CACHE_KEY_PREFIX", "")
 PROMPT_CACHE_RETENTION = env_str("LLM_PROMPT_CACHE_RETENTION", "")
 
@@ -79,6 +82,8 @@ def chat_completion_kwargs() -> dict:
         "temperature": TEMPERATURE,
         "top_p": TOP_P,
     }
+    if REASONING_EFFORT and "api.openai.com" in BASE_URL:
+        kwargs["reasoning_effort"] = REASONING_EFFORT
     if EXTRA_BODY_JSON:
         kwargs["extra_body"] = json.loads(EXTRA_BODY_JSON)
     return kwargs
