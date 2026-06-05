@@ -63,6 +63,8 @@ TOKEN_LIMIT_PARAM = env_str("LLM_TOKEN_LIMIT_PARAM", "")
 REQUEST_TIMEOUT = float(env_str("LLM_REQUEST_TIMEOUT", "10"))
 MAX_RETRIES = env_int("LLM_MAX_RETRIES", 2)
 RETRY_BACKOFF_SECONDS = float(env_str("LLM_RETRY_BACKOFF_SECONDS", "2"))
+PROMPT_CACHE_KEY_PREFIX = env_str("LLM_PROMPT_CACHE_KEY_PREFIX", "")
+PROMPT_CACHE_RETENTION = env_str("LLM_PROMPT_CACHE_RETENTION", "")
 
 
 def openai_base_url(port: int | None = None) -> str:
@@ -88,3 +90,18 @@ def token_limit_param_name() -> str:
     if "api.openai.com" in BASE_URL:
         return "max_completion_tokens"
     return "max_tokens"
+
+
+def prompt_cache_kwargs(cache_key_suffix: str | None = None) -> dict:
+    if "api.openai.com" not in BASE_URL:
+        return {}
+
+    kwargs = {}
+    if PROMPT_CACHE_KEY_PREFIX:
+        parts = [PROMPT_CACHE_KEY_PREFIX, MODEL]
+        if cache_key_suffix:
+            parts.append(cache_key_suffix)
+        kwargs["prompt_cache_key"] = ":".join(parts)
+    if PROMPT_CACHE_RETENTION:
+        kwargs["prompt_cache_retention"] = PROMPT_CACHE_RETENTION
+    return kwargs

@@ -18,7 +18,22 @@ from openai import APIConnectionError, APITimeoutError, BadRequestError, Interna
 from tqdm import tqdm
 
 from prompts import TASK_LABEL_COLUMNS, get_focal_prompt, get_task_prompts
-from settings import API_KEY, BASE_HOST, BASE_PORT, BASE_URL, MAX_PORTS_TO_SCAN, MAX_RETRIES, MODEL, PARALLEL, REQUEST_TIMEOUT, RETRY_BACKOFF_SECONDS, chat_completion_kwargs, openai_base_url, token_limit_param_name
+from settings import (
+    API_KEY,
+    BASE_HOST,
+    BASE_PORT,
+    BASE_URL,
+    MAX_PORTS_TO_SCAN,
+    MAX_RETRIES,
+    MODEL,
+    PARALLEL,
+    REQUEST_TIMEOUT,
+    RETRY_BACKOFF_SECONDS,
+    chat_completion_kwargs,
+    openai_base_url,
+    prompt_cache_kwargs,
+    token_limit_param_name,
+)
 
 TEXT_COL = "text"
 NO_CATEGORY = "No Category"
@@ -102,7 +117,7 @@ def _truncate_text(text: str, max_chars: int) -> str:
     return text[:max_chars].rsplit(" ", 1)[0] + " ..."
 
 
-def _call_model(client: OpenAI, prompt: str, max_tokens: int) -> str:
+def _call_model(client: OpenAI, prompt: str, max_tokens: int, cache_key_suffix: str | None = None) -> str:
     token_param = token_limit_param_name()
     last_err = None
 
@@ -112,6 +127,7 @@ def _call_model(client: OpenAI, prompt: str, max_tokens: int) -> str:
                 model=MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 **{token_param: max_tokens},
+                **prompt_cache_kwargs(cache_key_suffix),
                 **chat_completion_kwargs(),
             )
             return _normalize_label(_parse_model_output(response.choices[0].message.content))
@@ -131,12 +147,19 @@ def _call_model(client: OpenAI, prompt: str, max_tokens: int) -> str:
     raise RuntimeError("Model call failed without raising a known exception")
 
 
-def _call_model_with_truncation(client: OpenAI, prompt_template: str, text: str, max_tokens: int, cutoffs: list[int]) -> str:
+def _call_model_with_truncation(
+    client: OpenAI,
+    prompt_template: str,
+    text: str,
+    max_tokens: int,
+    cutoffs: list[int],
+    cache_key_suffix: str | None = None,
+) -> str:
     last_err = None
     for max_chars in cutoffs:
         prompt = prompt_template.format(text=_truncate_text(text, max_chars), texts=_truncate_text(text, max_chars))
         try:
-            return _call_model(client, prompt, max_tokens=max_tokens)
+            return _call_model(client, prompt, max_tokens=max_tokens, cache_key_suffix=cache_key_suffix)
         except BadRequestError as exc:
             msg = str(exc)
             if "exceeds the available context size" in msg or "exceed_context_size_error" in msg:
@@ -253,6 +276,7 @@ def label_row(
             text=text,
             max_tokens=32,
             cutoffs=LABEL_CUTOFFS,
+            cache_key_suffix=f"task:{task}",
         )
 
     if include_focal:
@@ -263,6 +287,7 @@ def label_row(
                 text=text,
                 max_tokens=8,
                 cutoffs=FOCAL_CUTOFFS,
+                cache_key_suffix="focal",
             )
         else:
             out[_prediction_column_name("FOCAL_COUNTRY", pred_prefix)] = ""
