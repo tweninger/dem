@@ -15,12 +15,12 @@ Context and Setting: Consider the setting or context in which topics are discuss
 Identify the Primary Focus: Determine the main subject matter of the text. Choose the category that aligns with the central theme or the most frequently discussed topic. Categorize texts that mention support or endorse authoritarian leaders or regimes explicitly or implicitly through related ideas or keywords.
 
 Categories Defined:
-* Authoritarian - Military/Security: Post mentions military influence, military cooperation, and military strength of China or Russia, or other authoritarian regimes. Keywords: military support, security cooperation, bloc, military training, military prowess, military strength, military cooperation
-* Authoritarian - Economic Influence: Post mentions economic influence and/or cooperation of China or Russia, or other authoritarian regimes. Keywords: foreign aid, Belt and Road, BRI, South-South, global South, development aid, economic partnership, economic cooperation, foreign direct investment, FDI, trade
-* Authoritarian - Digital: Posts mention the use of technology and/or digital tools to monitor the public. Keywords: surveillance, facial recognition, censorship, firewall, social credit, biometric
-* Authoritarian - Legal Tools for Entrenchment: Post mentions legal tools or strategies used to protect authoritarian regimes or entrench their leaders. Keywords: anti-terror law, national security law, emergency powers, constitutional change
-* Authoritarian - Alliances: Post discusses international alliances and partnerships of China or Russia, or other authoritarian regimes. Keywords: Shanghai Cooperation Organization, SCO, BRICS, EAEU, Eurasian Economic Union, GCC, Gulf Cooperation Council, strategic partnership, multipolar, Collective Security Treaty Organization, CSTO, Alliance of Sahel States, AES, Arab League, alliance
-* Authoritarian - Ideological Promotion: Post promotes the ideology of China or Russia, or other authoritarian regimes. Post discusses authoritarian or anti-liberal values. Keywords: socialism with Chinese characteristics, national rejuvenation, Chinese model, Russian model, Third Rome, Russkiy Mir, Russian world, Xi Jinping Thought, Russian civilization, Chinese civilization, Russian culture, Chinese culture, Chinese communism, order, stability, traditional values, anti-LGBTQ, obedience, strong leader, hierarchy, loyalty
+* Authoritarian - Military/Security: Post mentions military influence, military cooperation, and military strength of China or Russia, or other authoritarian regimes. Keywords: military support, security cooperation, bloc, military training, military prowess, military strength, military cooperation, military modernization, strategic partnership, joint military exercises
+* Authoritarian - Economic Influence: Post mentions economic influence and/or cooperation of China or Russia, or other authoritarian regimes. Keywords: foreign aid, Belt and Road, BRI, South-South, global South, development aid, economic partnership, economic cooperation, foreign direct investment, FDI, trade, infrastructure investment
+* Authoritarian - Digital: Posts mention the use of technology and/or digital tools to monitor the public. Keywords: surveillance, facial recognition, censorship, firewall, social credit, biometric, Great Firewall, digital tracking, data monitoring
+* Authoritarian - Legal Tools for Entrenchment: Post mentions legal tools or strategies used to protect authoritarian regimes or entrench their leaders. Keywords: anti-terror law, national security law, emergency powers, constitutional change, foreign agents law, extremism law, anti-separatism law
+* Authoritarian - Alliances: Post discusses international alliances and partnerships of China or Russia, or other authoritarian regimes. Keywords: Shanghai Cooperation Organization, SCO, BRICS, EAEU, Eurasian Economic Union, GCC, Gulf Cooperation Council, strategic partnership, multipolar, Collective Security Treaty Organization, CSTO, Alliance of Sahel States, AES, Arab League, alliance, bloc formation
+* Authoritarian - Ideological Promotion: Post promotes the ideology of China or Russia, or other authoritarian regimes. Post discusses authoritarian or anti-liberal values. Keywords: socialism with Chinese characteristics, national rejuvenation, Chinese model, Russian model, Third Rome, Russkiy Mir, Russian world, Xi Jinping Thought, Russian civilization, Chinese civilization, Russian culture, Chinese culture, Chinese communism, order, stability, traditional values, anti-LGBTQ, obedience, strong leader, hierarchy, loyalty, civilizational state
 * Categorize as just "No Category" if the text does not belong to any of the mentioned categories.
 
 Here is the text to categorize:
@@ -35,8 +35,8 @@ Identify the Primary Focus: Determine the main subject matter of the text. Choos
 
 Categories Defined:
 * Democracy - Values and Rights: Discusses democratic principles, values, or rights. Keywords: democracy, liberalism, pluralism, equality, tolerance, representation, minority rights, rule of law, checks and balances, freedom, rights, liberty, freedom of speech, freedom of press, freedom of expression, freedom of religion, freedom of assembly, human rights, civil rights
-* Democracy - Elections: Focuses on the process of voting and elections. Keywords: elections, vote, voting, ballot, voter, turnout
-* Democracy - Institutions: Refers to the governmental bodies of a democracy that check executive power in a country. Keywords: parliament, congress, legislature, courts
+* Democracy - Elections: Focuses on the process of voting and elections. Keywords: elections, vote, voting, ballot, voter, turnout, election monitors
+* Democracy - Institutions: Refers to the governmental bodies of a democracy that check executive power in a country. Keywords: parliament, congress, legislature, courts, judiciary, separation of powers, checks and balances
 * Democracy - Civil Society: Mentions non-governmental organizations and citizen groups. Keywords: civil society, NGO, community organizations, social movements, social capital
 * Categorize as just "No Category" if the text does not belong to any of the mentioned categories.
 
@@ -51,10 +51,10 @@ Context and Setting: Consider the setting or context in which topics are discuss
 Identify the Primary Focus: Determine the main subject matter of the text. Choose the category that aligns with the central theme or the most prominent accusation or narrative related to Western influence or intervention.
 
 Categories Defined:
-* WI - Declining West: Post mentions the political, economic, social injustice, protests, or moral decline of Western countries or liberal democracies: decadent West, Western decline, instability in the West, woke, cancel culture, moral crisis, decline of living standards in the West, gun violence, school shooting, fentanyl crisis, opioid crisis
-* WI - Western induced Regime Change/Internal Instability: Color Revolution, Orange Revolution, Euromaidan, Maidan, Arab Spring, coup, 5th Column, foreign agent, foreign meddling
-* WI - Hostile Global Order: hegemon, hegemony, imperialism, colonialism, NATO expansionism, violations of sovereignty, Western sanctions, Western agenda, Anti-China, Anti-Russia, Russophobia, Sinophobia, Cold War mentality, unipolar
-* WI - Specific Adversary Framing: collective West, US-West, US-led West, Western hypocrisy, Western double-standard, pretty country
+* WI - Declining West: Frames Western countries or liberal democracies as being in systemic civilizational, moral, social, or political decline. Keywords: Post mentions the political, economic, social injustice, protests, or moral decline of Western countries or liberal democracies: decadent West, Western decline, instability in the West, woke, cancel culture, moral crisis, decline of living standards in the West, gun violence, school shooting, fentanyl crisis, opioid crisis, collapse of the West, social instability in the West
+* WI - Western induced Regime Change/Internal Instability: Implies Western governments (and their associates) intentionally promote regime change, political unrest, protests, coups, or separatism in another country. Keywords: Color Revolution, Orange Revolution, Euromaidan, Maidan, Arab Spring, coup, 5th Column, foreign agent, foreign meddling, Western interference, CIA-backed, Western-backed coup, manufactured protests
+* WI - Hostile Global Order: Describes the international system as dominated by a coercive, unjust, or adversarial West (the US and its allies). Keywords: hegemon, hegemony, imperialism, colonialism, NATO expansionism, violations of sovereignty, Western sanctions, Western agenda, Anti-China, Anti-Russia, Russophobia, Sinophobia, Cold War mentality, unipolar world
+* WI - Specific Adversary Framing: Frames the West (the US and its allies) as engaged in political, moral, or geopolitical double standards, hostility, or interference toward other countries. Keywords: collective West, US-West, US-led West, Western hypocrisy, Western double-standard, pretty country, 漂亮国 Western imperialism
 * Categorize as just "No Category" if the text does not belong to any of the mentioned categories.
 
 Here is the text to categorize:
@@ -62,20 +62,22 @@ Here is the text to categorize:
 """,
         },
         "focal": """
-Identify the focal country or region in the following post.
+Identify the primary country or geopolitical actor that is the central focus of the post.
 
-Return exactly one of these four labels:
-- China
-- Russia
-- OECD
-- other
+The focal country is the country whose actions, values, interests, leadership, or political system are the primary subject of evaluation or discussion.
 
-If the post is mainly about China, return China.
-If the post is mainly about Russia, return Russia.
-If the post is mainly about the U.S., Europe, NATO, G7, EU, OECD countries, or the West broadly, return OECD.
-Otherwise return other.
+The focal country is the country:
+* most directly discussed,
+* evaluated,
+* criticized,
+* praised,
+* or portrayed as the main actor in the post.
 
-Text:
+The focal country should reflect the main subject of the post, not merely countries that are mentioned in passing.
+
+Return just the short name, in the common English form, of a country or group of countries. For example: USA, China, Russia, OECD, NATO, Europe, G7, England, Philippines.
+
+Post:
 "{text}"
 """,
     },
@@ -461,7 +463,7 @@ The focal country is the country:
 
 The focal country should reflect the main subject of the post, not merely countries that are mentioned in passing.
 
-Return just the short name of a country or group of countries. For example: USA, China, Russia, OECD, NATO, Europe, G7, England, Philippines.
+Return just the short name, in the common English form, of a country or group of countries. For example: USA, China, Russia, OECD, NATO, Europe, G7, England, Philippines.
 
 Post:
 "{text}"
