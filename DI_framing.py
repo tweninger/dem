@@ -397,6 +397,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out", default=None, help="Output CSV path")
     parser.add_argument("--col", default=TEXT_COL, help="Column containing text to label")
     parser.add_argument("--limit", type=int, default=None, help="Only process the first N rows")
+    parser.add_argument("--random-sample", action="store_true", help="With --limit, sample N random rows instead of taking the first N")
+    parser.add_argument("--random-seed", type=int, default=42, help="Random seed used with --random-sample")
     parser.add_argument("--type", nargs="+", default=None, help="One or more task types: aut dem west")
     parser.add_argument("--focal", action="store_true", help="Also label the focal country/actor when a content frame is found")
     parser.add_argument("--prompt-version", type=int, choices=[1, 2], default=2, help="Prompt set version to use")
@@ -432,7 +434,14 @@ def main(argv: list[str] | None = None) -> None:
         if args.limit <= 0:
             print("ERROR: --limit must be greater than 0", file=sys.stderr)
             sys.exit(2)
-        df = df.head(args.limit).copy()
+        if args.random_sample:
+            n = min(args.limit, len(df))
+            df = df.sample(n=n, random_state=args.random_seed).sort_index().copy()
+        else:
+            df = df.head(args.limit).copy()
+    elif args.random_sample:
+        print("ERROR: --random-sample requires --limit", file=sys.stderr)
+        sys.exit(2)
 
     init_clients()
     run_labeling(df, out_csv, tasks, args.focal, args.col, task_prompts, focal_prompt, args.pred_prefix, args.debug_progress)
