@@ -17,7 +17,7 @@ import pandas as pd
 from openai import APIConnectionError, APITimeoutError, BadRequestError, InternalServerError, OpenAI, RateLimitError
 from tqdm import tqdm
 
-from prompts import TASK_LABEL_COLUMNS, get_focal_prompt, get_task_prompts
+from prompts import FOCAL_LABEL_COLUMN, TASK_LABEL_COLUMNS, get_focal_prompt, get_task_prompts
 from settings import (
     API_KEY,
     BASE_HOST,
@@ -223,7 +223,7 @@ def _prediction_column_name(base_col: str, pred_prefix: str) -> str:
 def _output_columns(tasks: list[str], include_focal: bool, pred_prefix: str) -> list[str]:
     cols = [_prediction_column_name(TASK_LABEL_COLUMNS[task], pred_prefix) for task in tasks]
     if include_focal:
-        cols.append(_prediction_column_name("FOCAL_COUNTRY", pred_prefix))
+        cols.append(_prediction_column_name(FOCAL_LABEL_COLUMN, pred_prefix))
     return cols
 
 
@@ -303,7 +303,7 @@ def label_row(
 
     if include_focal:
         if _has_any_content_label(out, tasks, pred_prefix):
-            out[_prediction_column_name("FOCAL_COUNTRY", pred_prefix)] = _call_model_with_truncation(
+            out[_prediction_column_name(FOCAL_LABEL_COLUMN, pred_prefix)] = _call_model_with_truncation(
                 client=client,
                 prompt_template=focal_prompt,
                 text=text,
@@ -312,7 +312,7 @@ def label_row(
                 cache_key_suffix="focal",
             )
         else:
-            out[_prediction_column_name("FOCAL_COUNTRY", pred_prefix)] = ""
+            out[_prediction_column_name(FOCAL_LABEL_COLUMN, pred_prefix)] = ""
 
     return out
 
@@ -425,7 +425,7 @@ def run_labeling(
                         for task in tasks
                     ]
                     if include_focal:
-                        parts.append(f"FOCAL={row.get(_prediction_column_name('FOCAL_COUNTRY', pred_prefix), '')}")
+                        parts.append(f"FOCAL={row.get(_prediction_column_name(FOCAL_LABEL_COLUMN, pred_prefix), '')}")
                     tqdm.write(f"[{next_write + 1}/{total_rows}] " + " | ".join(parts))
                     next_write += 1
 

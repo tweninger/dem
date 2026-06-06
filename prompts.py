@@ -1,8 +1,10 @@
 TASK_LABEL_COLUMNS = {
-    "AUT": "AUT_LABEL",
-    "DEM": "DEM_LABEL",
-    "WEST": "WEST_LABEL",
+    "AUT": "aut",
+    "DEM": "dem",
+    "WEST": "west",
 }
+
+FOCAL_LABEL_COLUMN = "focal"
 
 PROMPT_SETS = {
     1: {

@@ -5,9 +5,17 @@ import sys
 
 import pandas as pd
 
+from prompts import FOCAL_LABEL_COLUMN, TASK_LABEL_COLUMNS
 
-FRAME_COLS = ["AUT_LABEL", "DEM_LABEL", "WEST_LABEL"]
-FOCAL_COL = "FOCAL_COUNTRY"
+
+FRAME_COLS = list(TASK_LABEL_COLUMNS.values())
+FRAME_COL_ALIASES = {
+    "aut": ["aut", "AUT_LABEL"],
+    "dem": ["dem", "DEM_LABEL"],
+    "west": ["west", "WEST_LABEL"],
+}
+FOCAL_COL = FOCAL_LABEL_COLUMN
+FOCAL_ALIASES = [FOCAL_LABEL_COLUMN, "FOCAL_COUNTRY"]
 
 
 def norm(value: str) -> str:
@@ -47,6 +55,13 @@ def norm(value: str) -> str:
 
 def is_yes(value: str) -> bool:
     return str(value).strip().upper() == "Y"
+
+
+def first_present(columns: list[str], df: pd.DataFrame) -> str | None:
+    for col in columns:
+        if col in df.columns:
+            return col
+    return None
 
 
 def print_accuracy(title: str, truth: pd.Series, pred: pd.Series) -> None:
@@ -91,23 +106,34 @@ def main() -> None:
     focal_ok = df.get("Focal Country Correct?", pd.Series("", index=df.index)).map(is_yes)
 
     for frame_col in FRAME_COLS:
-        pred_col = f"{args.pred_prefix}{frame_col}"
+        pred_source_col = first_present(FRAME_COL_ALIASES[frame_col], df)
+        if pred_source_col is None:
+            print(f"Skipping {frame_col}: missing any of {FRAME_COL_ALIASES[frame_col]}\n")
+            continue
+
+        pred_col = f"{args.pred_prefix}{pred_source_col}"
         if pred_col not in df.columns:
             print(f"Skipping {frame_col}: missing {pred_col}\n")
             continue
 
-        mask = frame_ok & df["sample_from"].astype(str).str.strip().eq(frame_col)
+        sample_from = df["sample_from"].astype(str).str.strip()
+        mask = frame_ok & sample_from.isin(FRAME_COL_ALIASES[frame_col])
         truth = df.loc[mask, "label_value"]
         pred = df.loc[mask, pred_col]
         print_accuracy(frame_col, truth, pred)
 
-    focal_pred_col = f"{args.pred_prefix}{FOCAL_COL}"
-    if focal_pred_col not in df.columns:
-        print(f"Skipping {FOCAL_COL}: missing {focal_pred_col}\n")
+    focal_source_col = first_present(FOCAL_ALIASES, df)
+    if focal_source_col is None:
+        print(f"Skipping {FOCAL_COL}: missing any of {FOCAL_ALIASES}\n")
     else:
-        truth = df.loc[focal_ok, FOCAL_COL]
-        pred = df.loc[focal_ok, focal_pred_col]
-        print_accuracy(FOCAL_COL, truth, pred)
+        focal_pred_col = f"{args.pred_prefix}{focal_source_col}"
+        if focal_pred_col not in df.columns:
+            print(f"Skipping {FOCAL_COL}: missing {focal_pred_col}\n")
+        else:
+            truth_source_col = first_present(FOCAL_ALIASES, df)
+            truth = df.loc[focal_ok, truth_source_col]
+            pred = df.loc[focal_ok, focal_pred_col]
+            print_accuracy(FOCAL_COL, truth, pred)
 
 
 if __name__ == "__main__":

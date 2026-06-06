@@ -28,6 +28,8 @@ source .env
 python3 DI_framing.py --csv input.csv --type aut dem west --out labeled.csv
 ```
 
+If your input CSV already has a `text` column, the script reads it directly and appends lowercase output columns such as `aut`, `dem`, `west`, and `focal`.
+
 Examples:
 
 ```bash
