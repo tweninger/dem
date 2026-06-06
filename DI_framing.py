@@ -236,7 +236,33 @@ def _build_output_header(input_columns: list[str], label_cols: list[str]) -> lis
     return header
 
 
-def _determine_resume_index(out_csv: str, label_cols: list[str]) -> int:
+def _row_needs_resume(
+    row: dict[str, str],
+    tasks: list[str],
+    include_focal: bool,
+    pred_prefix: str,
+) -> bool:
+    task_cols = [_prediction_column_name(TASK_LABEL_COLUMNS[task], pred_prefix) for task in tasks]
+    for col in task_cols:
+        if str(row.get(col, "")).strip() == "":
+            return True
+
+    if not include_focal:
+        return False
+
+    focal_col = _prediction_column_name(FOCAL_LABEL_COLUMN, pred_prefix)
+    has_any_content_label = any(_normalize_label(row.get(col, "")) != NO_CATEGORY for col in task_cols)
+    focal_value = str(row.get(focal_col, "")).strip()
+    return has_any_content_label and focal_value == ""
+
+
+def _determine_resume_index(
+    out_csv: str,
+    label_cols: list[str],
+    tasks: list[str],
+    include_focal: bool,
+    pred_prefix: str,
+) -> int:
     if not os.path.exists(out_csv):
         return 0
     with open(out_csv, "r", encoding="utf-8-sig", newline="") as handle:
@@ -247,7 +273,7 @@ def _determine_resume_index(out_csv: str, label_cols: list[str]) -> int:
             return sum(1 for _ in reader)
 
         for idx, row in enumerate(reader):
-            if any(str(row.get(col, "")).strip() == "" for col in label_cols):
+            if _row_needs_resume(row, tasks, include_focal, pred_prefix):
                 return idx
         return idx + 1 if "idx" in locals() else 0
 
@@ -512,7 +538,7 @@ def run_labeling(
     header = _build_output_header(list(df.columns), label_cols)
 
     total_rows = len(df)
-    start = max(0, min(_determine_resume_index(out_csv, label_cols), total_rows))
+    start = max(0, min(_determine_resume_index(out_csv, label_cols, tasks, include_focal, pred_prefix), total_rows))
     print(f"Loaded rows: {total_rows:,}")
     print(f"Resuming at row {start:,}/{total_rows:,}")
 
@@ -558,7 +584,7 @@ def run_labeling_stream(
     header = _build_output_header(input_columns, label_cols)
 
     total_rows = limit
-    start = _determine_resume_index(out_csv, label_cols)
+    start = _determine_resume_index(out_csv, label_cols, tasks, include_focal, pred_prefix)
     if total_rows is not None:
         start = min(start, total_rows)
 
