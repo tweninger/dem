@@ -12,6 +12,7 @@ import socket
 import sys
 import time
 import traceback
+from collections.abc import Sequence
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 import pandas as pd
@@ -42,6 +43,58 @@ TEXT_COL = "text"
 NO_CATEGORY = "No Category"
 LABEL_CUTOFFS = [2500, 1800, 1200, 800, 400]
 FOCAL_CUTOFFS = [2500, 1800, 1200, 800, 400]
+TASK_ALLOWED_LABELS = {
+    1: {
+        "AUT": [
+            "Authoritarian - Military/Security",
+            "Authoritarian - Economic Influence",
+            "Authoritarian - Digital",
+            "Authoritarian - Legal Tools for Entrenchment",
+            "Authoritarian - Alliances",
+            "Authoritarian - Ideological Promotion",
+            NO_CATEGORY,
+        ],
+        "DEM": [
+            "Democracy - Values and Rights",
+            "Democracy - Elections",
+            "Democracy - Institutions",
+            "Democracy - Civil Society",
+            NO_CATEGORY,
+        ],
+        "WEST": [
+            "WI - Declining West",
+            "WI - Western induced Regime Change/Internal Instability",
+            "WI - Hostile Global Order",
+            "WI - Specific Adversary Framing",
+            NO_CATEGORY,
+        ],
+    },
+    2: {
+        "AUT": [
+            "Military/Security Promotion",
+            "Economic Influence",
+            "Digital Control and Surveillance",
+            "Legal Entrenchment",
+            "Alliances",
+            "Ideological Promotion",
+            NO_CATEGORY,
+        ],
+        "DEM": [
+            "Values and Rights",
+            "Elections",
+            "Institutions",
+            "Civil Society",
+            NO_CATEGORY,
+        ],
+        "WEST": [
+            "Declining West",
+            "Western induced Regime Change/Internal Instability",
+            "Hostile Global Order",
+            "Specific Adversary Framing",
+            NO_CATEGORY,
+        ],
+    },
+}
 
 _clients: list[OpenAI] = []
 
@@ -113,6 +166,36 @@ def _normalize_label(value: str) -> str:
     return s
 
 
+def _fold_label(value: str) -> str:
+    return re.sub(r"\s+", " ", _normalize_label(value)).strip().casefold()
+
+
+def _match_allowed_label(value: str, allowed_labels: Sequence[str]) -> str | None:
+    normalized = _normalize_label(value)
+    if normalized in allowed_labels:
+        return normalized
+
+    folded = _fold_label(normalized)
+    matches = [label for label in allowed_labels if _fold_label(label) == folded]
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+def _build_label_repair_prompt(task: str, text: str, invalid_label: str, allowed_labels: Sequence[str]) -> str:
+    allowed_lines = "\n".join(f"- {label}" for label in allowed_labels)
+    return (
+        f"You are correcting a {task} classification label.\n\n"
+        "Your previous answer was invalid because it was not exactly one of the allowed labels.\n"
+        "Choose the single best label from the list below and return exactly that label with no explanation.\n\n"
+        "Allowed labels:\n"
+        f"{allowed_lines}\n\n"
+        f'Invalid previous answer:\n"{invalid_label}"\n\n'
+        "Post:\n"
+        f'"{text}"\n'
+    )
+
+
 def _truncate_text(text: str, max_chars: int) -> str:
     text = str(text).strip()
     if len(text) <= max_chars:
@@ -170,6 +253,41 @@ def _call_model(client: OpenAI, prompt: str, max_tokens: int, cache_key_suffix: 
     raise RuntimeError("Model call failed without raising a known exception")
 
 
+def _call_task_model_with_validation(
+    client: OpenAI,
+    task: str,
+    prompt: str,
+    text: str,
+    max_tokens: int,
+    allowed_labels: Sequence[str],
+    cache_key_suffix: str | None = None,
+) -> str:
+    first = _call_model(client, prompt, max_tokens=max_tokens, cache_key_suffix=cache_key_suffix)
+    matched = _match_allowed_label(first, allowed_labels)
+    if matched is not None:
+        return matched
+
+    print(
+        f"[warn] invalid {task} label '{first}' returned; retrying with strict allowlist.",
+        file=sys.stderr,
+    )
+    repair_prompt = _build_label_repair_prompt(task, text, first, allowed_labels)
+    repaired = _call_model(
+        client,
+        repair_prompt,
+        max_tokens=max_tokens,
+        cache_key_suffix=f"{cache_key_suffix}:repair" if cache_key_suffix else None,
+    )
+    matched = _match_allowed_label(repaired, allowed_labels)
+    if matched is not None:
+        return matched
+
+    raise ValueError(
+        f"{task} label remained invalid after retry. First='{first}' Retry='{repaired}' "
+        f"Allowed={list(allowed_labels)}"
+    )
+
+
 def _call_model_with_truncation(
     client: OpenAI,
     prompt_template: str,
@@ -177,11 +295,24 @@ def _call_model_with_truncation(
     max_tokens: int,
     cutoffs: list[int],
     cache_key_suffix: str | None = None,
+    task: str | None = None,
+    allowed_labels: Sequence[str] | None = None,
 ) -> str:
     last_err = None
     for max_chars in cutoffs:
-        prompt = prompt_template.format(text=_truncate_text(text, max_chars), texts=_truncate_text(text, max_chars))
+        truncated_text = _truncate_text(text, max_chars)
+        prompt = prompt_template.format(text=truncated_text, texts=truncated_text)
         try:
+            if task and allowed_labels is not None:
+                return _call_task_model_with_validation(
+                    client=client,
+                    task=task,
+                    prompt=prompt,
+                    text=truncated_text,
+                    max_tokens=max_tokens,
+                    allowed_labels=allowed_labels,
+                    cache_key_suffix=cache_key_suffix,
+                )
             return _call_model(client, prompt, max_tokens=max_tokens, cache_key_suffix=cache_key_suffix)
         except BadRequestError as exc:
             msg = str(exc)
@@ -329,6 +460,7 @@ def label_row(
     include_focal: bool,
     text_col: str,
     task_prompts: dict[str, str],
+    task_allowed_labels: dict[str, list[str]],
     focal_prompt: str,
     pred_prefix: str,
 ) -> dict[str, str]:
@@ -344,6 +476,8 @@ def label_row(
             max_tokens=LABEL_MAX_TOKENS,
             cutoffs=LABEL_CUTOFFS,
             cache_key_suffix=f"task:{task}",
+            task=task,
+            allowed_labels=task_allowed_labels[task],
         )
 
     if include_focal:
@@ -422,6 +556,7 @@ def _label_records(
     include_focal: bool,
     text_col: str,
     task_prompts: dict[str, str],
+    task_allowed_labels: dict[str, list[str]],
     focal_prompt: str,
     pred_prefix: str,
     debug_progress: bool,
@@ -448,6 +583,7 @@ def _label_records(
                 include_focal,
                 text_col,
                 task_prompts,
+                task_allowed_labels,
                 focal_prompt,
                 pred_prefix,
             )
@@ -479,6 +615,7 @@ def _label_records(
                         include_focal,
                         text_col,
                         task_prompts,
+                        task_allowed_labels,
                         focal_prompt,
                         pred_prefix,
                     )
@@ -530,6 +667,7 @@ def run_labeling(
     include_focal: bool,
     text_col: str,
     task_prompts: dict[str, str],
+    task_allowed_labels: dict[str, list[str]],
     focal_prompt: str,
     pred_prefix: str,
     debug_progress: bool,
@@ -556,6 +694,7 @@ def run_labeling(
             include_focal=include_focal,
             text_col=text_col,
             task_prompts=task_prompts,
+            task_allowed_labels=task_allowed_labels,
             focal_prompt=focal_prompt,
             pred_prefix=pred_prefix,
             debug_progress=debug_progress,
@@ -573,6 +712,7 @@ def run_labeling_stream(
     include_focal: bool,
     text_col: str,
     task_prompts: dict[str, str],
+    task_allowed_labels: dict[str, list[str]],
     focal_prompt: str,
     pred_prefix: str,
     debug_progress: bool,
@@ -627,6 +767,7 @@ def run_labeling_stream(
                 include_focal=include_focal,
                 text_col=text_col,
                 task_prompts=task_prompts,
+                task_allowed_labels=task_allowed_labels,
                 focal_prompt=focal_prompt,
                 pred_prefix=pred_prefix,
                 debug_progress=debug_progress,
@@ -661,6 +802,7 @@ def main(argv: list[str] | None = None) -> None:
     args = build_arg_parser().parse_args(argv)
     task_prompts = get_task_prompts(args.prompt_version)
     focal_prompt = get_focal_prompt(args.prompt_version)
+    task_allowed_labels = TASK_ALLOWED_LABELS[args.prompt_version]
     tasks = _parse_task_args(args.type, task_prompts)
     out_csv = args.out or _default_output_name(tasks, args.focal)
 
@@ -689,7 +831,18 @@ def main(argv: list[str] | None = None) -> None:
     if args.random_sample:
         print(f"Streaming random sample of {args.limit:,} rows with seed {args.random_seed}")
         df = _reservoir_sample_rows(args.csv, args.limit, args.random_seed, args.chunk_size)
-        run_labeling(df, out_csv, tasks, args.focal, args.col, task_prompts, focal_prompt, args.pred_prefix, args.debug_progress)
+        run_labeling(
+            df,
+            out_csv,
+            tasks,
+            args.focal,
+            args.col,
+            task_prompts,
+            task_allowed_labels,
+            focal_prompt,
+            args.pred_prefix,
+            args.debug_progress,
+        )
     else:
         run_labeling_stream(
             csv_path=args.csv,
@@ -698,6 +851,7 @@ def main(argv: list[str] | None = None) -> None:
             include_focal=args.focal,
             text_col=args.col,
             task_prompts=task_prompts,
+            task_allowed_labels=task_allowed_labels,
             focal_prompt=focal_prompt,
             pred_prefix=args.pred_prefix,
             debug_progress=args.debug_progress,
