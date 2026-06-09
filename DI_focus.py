@@ -44,10 +44,6 @@ def _default_output_name(pred_prefix: str) -> str:
     return f"labeled_{prefix}focal_v1.csv"
 
 
-def _row_needs_resume(row: dict[str, str], focal_col: str) -> bool:
-    return str(row.get(focal_col, "")).strip() == ""
-
-
 def _determine_resume_index(out_csv: str, focal_col: str) -> int:
     if not os.path.exists(out_csv):
         return 0
@@ -55,40 +51,19 @@ def _determine_resume_index(out_csv: str, focal_col: str) -> int:
         reader = csv.DictReader(handle)
         if not reader.fieldnames:
             return 0
-        if focal_col not in reader.fieldnames:
-            return sum(1 for _ in reader)
-
-        for idx, row in enumerate(reader):
-            if _row_needs_resume(row, focal_col):
-                return idx
-        return idx + 1 if "idx" in locals() else 0
-
-
-def _count_csv_data_rows(csv_path: str, chunk_size: int) -> int:
-    total_rows = 0
-    for chunk in _iter_input_chunks(csv_path, chunk_size):
-        total_rows += len(chunk)
-    return total_rows
+        return sum(1 for _ in reader)
 
 
 def _resume_message(start: int, total_rows: int | None) -> str:
-    completed_rows = start
-    next_data_row = start + 1
-    next_file_line = start + 2
-
     if total_rows is None:
-        return (
-            f"Completed {completed_rows:,} data rows; next input data row is {next_data_row:,} "
-            f"(CSV physical line {next_file_line:,} only if there are no embedded newlines)"
-        )
+        return f"Completed {start:,} data rows; next input data row is {start + 1:,}"
 
     if start >= total_rows:
         return f"Completed all {total_rows:,} data rows"
 
     return (
-        f"Completed {completed_rows:,}/{total_rows:,} data rows; next input data row is "
-        f"{next_data_row:,}/{total_rows:,} (CSV physical line {next_file_line:,} only if there "
-        "are no embedded newlines)"
+        f"Completed {start:,}/{total_rows:,} data rows; next input data row is "
+        f"{start + 1:,}/{total_rows:,}"
     )
 
 
@@ -238,10 +213,6 @@ def run_labeling_stream(
     header = _build_output_header(input_columns, focal_col)
 
     total_rows = limit
-    if total_rows is None:
-        print("Counting input data rows for consistent resume reporting...")
-        total_rows = _count_csv_data_rows(csv_path, chunk_size)
-
     start = _determine_resume_index(out_csv, focal_col)
     if total_rows is not None:
         start = min(start, total_rows)
