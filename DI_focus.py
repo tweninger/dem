@@ -64,6 +64,34 @@ def _determine_resume_index(out_csv: str, focal_col: str) -> int:
         return idx + 1 if "idx" in locals() else 0
 
 
+def _count_csv_data_rows(csv_path: str, chunk_size: int) -> int:
+    total_rows = 0
+    for chunk in _iter_input_chunks(csv_path, chunk_size):
+        total_rows += len(chunk)
+    return total_rows
+
+
+def _resume_message(start: int, total_rows: int | None) -> str:
+    completed_rows = start
+    next_data_row = start + 1
+    next_file_line = start + 2
+
+    if total_rows is None:
+        return (
+            f"Completed {completed_rows:,} data rows; next input data row is {next_data_row:,} "
+            f"(CSV physical line {next_file_line:,} only if there are no embedded newlines)"
+        )
+
+    if start >= total_rows:
+        return f"Completed all {total_rows:,} data rows"
+
+    return (
+        f"Completed {completed_rows:,}/{total_rows:,} data rows; next input data row is "
+        f"{next_data_row:,}/{total_rows:,} (CSV physical line {next_file_line:,} only if there "
+        "are no embedded newlines)"
+    )
+
+
 def label_row(
     row: dict[str, str] | pd.Series,
     row_idx: int,
@@ -174,7 +202,7 @@ def run_labeling(
     total_rows = len(df)
     start = max(0, min(_determine_resume_index(out_csv, focal_col), total_rows))
     print(f"Loaded rows: {total_rows:,}")
-    print(f"Resuming at row {start:,}/{total_rows:,}")
+    print(_resume_message(start, total_rows))
 
     handle, writer = _open_output_for_append(out_csv, header)
     try:
@@ -210,15 +238,16 @@ def run_labeling_stream(
     header = _build_output_header(input_columns, focal_col)
 
     total_rows = limit
+    if total_rows is None:
+        print("Counting input data rows for consistent resume reporting...")
+        total_rows = _count_csv_data_rows(csv_path, chunk_size)
+
     start = _determine_resume_index(out_csv, focal_col)
     if total_rows is not None:
         start = min(start, total_rows)
 
     print(f"Streaming input CSV in chunks of {chunk_size:,} rows")
-    if total_rows is None:
-        print(f"Resuming at row {start:,}")
-    else:
-        print(f"Resuming at row {start:,}/{total_rows:,}")
+    print(_resume_message(start, total_rows))
 
     handle, writer = _open_output_for_append(out_csv, header)
     try:
