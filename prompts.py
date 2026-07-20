@@ -5,6 +5,28 @@ TASK_LABEL_COLUMNS = {
 }
 
 FOCAL_LABEL_COLUMN = "focal"
+FOCAL_VALENCE_LABEL_COLUMN = "focal_valence"
+
+FOCAL_VALENCE_PROMPT = """
+You are a political-science researcher coding the evaluative direction of a social-media post.
+
+The social media post is from {source_country}, specifically {account_type}.
+
+And it is directed towards {focal_country}.
+
+This is the post:
+"{text}"
+
+Do not evaluate whether the abstract principle of this post is good or bad.
+Instead, your task is to evaluate how this post from {source_country} is evaluating {focal_country}.
+
+Is it Pro-{focal_country}, Anti-{focal_country}, or Neutral towards {focal_country}?
+
+Return exactly one label with no explanation:
+Pro
+Anti
+Neutral
+"""
 
 PROMPT_SETS = {
     1: {
@@ -480,3 +502,7 @@ def get_task_prompts(version: int) -> dict[str, str]:
 
 def get_focal_prompt(version: int) -> str:
     return PROMPT_SETS[version]["focal"]
+
+
+def get_focal_valence_prompt() -> str:
+    return FOCAL_VALENCE_PROMPT
