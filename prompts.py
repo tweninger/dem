@@ -8,19 +8,19 @@ FOCAL_LABEL_COLUMN = "focal"
 FOCAL_VALENCE_LABEL_COLUMN = "focal_valence"
 
 FOCAL_VALENCE_PROMPT = """
-You are a political-science researcher coding the evaluative direction of a social-media post.
+You are a political-science researcher coding the stance a social-media post expresses toward its focal country.
 
-The social media post is from {source_country}, specifically {account_type}.
+The post is published by a {account_type} account from {source_country} about news or events within {focal_country}.
 
-And it is directed towards {focal_country}.
-
-This is the post:
+Post:
 "{text}"
 
-Do not evaluate whether the abstract principle of this post is good or bad.
-Instead, your task is to evaluate how this post from {source_country} is evaluating {focal_country}.
+Code the overall portrayal of the focal country in this post. From the point of view of {source_country} does it portray the events or news within {focal_country} in a positive or negative way?
 
-Is it Pro-{focal_country}, Anti-{focal_country}, or Neutral towards {focal_country}?
+Return:
+- Pro: the post shows that the news or events within {focal_country} are good, positive, favorable, or beneficial.
+- Anti: the post shows that the news or events within {focal_country} are bad, negative, unfavorable, harmful, or exposing disfunction.
+- Neutral: the post reports events within {focal_country} without any positive or negative framing.
 
 Return exactly one label with no explanation:
 Pro

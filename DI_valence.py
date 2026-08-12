@@ -59,7 +59,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def default_output_path(sample_size: int, seed: int) -> str:
     kind = "pilot" if sample_size <= 24 else "sample"
-    return f"derived/valence/focal_valence_{kind}_v3_n{sample_size}_seed{seed}.csv"
+    return f"derived/valence/focal_valence_{kind}_v8_n{sample_size}_seed{seed}.csv"
 
 
 def build_stratified_sample(parquet_path: str, sample_size: int, seed: int) -> pd.DataFrame:
@@ -227,7 +227,7 @@ def label_record(
 
     focal_prompt = _format_prompt(focal_prompt_template, record)
     return {
-        FOCAL_VALENCE_LABEL_COLUMN: _label_prompt(focal_prompt, row_idx, "valence:focal:v3")
+        FOCAL_VALENCE_LABEL_COLUMN: _label_prompt(focal_prompt, row_idx, "valence:focal:v8")
     }
 
 
