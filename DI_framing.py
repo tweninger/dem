@@ -44,56 +44,29 @@ NO_CATEGORY = "No Category"
 LABEL_CUTOFFS = [2500, 1800, 1200, 800, 400]
 FOCAL_CUTOFFS = [2500, 1800, 1200, 800, 400]
 TASK_ALLOWED_LABELS = {
-    1: {
-        "AUT": [
-            "Authoritarian - Military/Security",
-            "Authoritarian - Economic Influence",
-            "Authoritarian - Digital",
-            "Authoritarian - Legal Tools for Entrenchment",
-            "Authoritarian - Alliances",
-            "Authoritarian - Ideological Promotion",
-            NO_CATEGORY,
-        ],
-        "DEM": [
-            "Democracy - Values and Rights",
-            "Democracy - Elections",
-            "Democracy - Institutions",
-            "Democracy - Civil Society",
-            NO_CATEGORY,
-        ],
-        "WEST": [
-            "WI - Declining West",
-            "WI - Western induced Regime Change/Internal Instability",
-            "WI - Hostile Global Order",
-            "WI - Specific Adversary Framing",
-            NO_CATEGORY,
-        ],
-    },
-    2: {
-        "AUT": [
-            "Military/Security Promotion",
-            "Economic Influence",
-            "Digital Control and Surveillance",
-            "Legal Entrenchment",
-            "Alliances",
-            "Ideological Promotion",
-            NO_CATEGORY,
-        ],
-        "DEM": [
-            "Values and Rights",
-            "Elections",
-            "Institutions",
-            "Civil Society",
-            NO_CATEGORY,
-        ],
-        "WEST": [
-            "Declining West",
-            "Western induced Regime Change/Internal Instability",
-            "Hostile Global Order",
-            "Specific Adversary Framing",
-            NO_CATEGORY,
-        ],
-    },
+    "AUT": [
+        "Authoritarian - Military/Security",
+        "Authoritarian - Economic Influence",
+        "Authoritarian - Digital",
+        "Authoritarian - Legal Tools for Entrenchment",
+        "Authoritarian - Alliances",
+        "Authoritarian - Ideological Promotion",
+        NO_CATEGORY,
+    ],
+    "DEM": [
+        "Democracy - Values and Rights",
+        "Democracy - Elections",
+        "Democracy - Institutions",
+        "Democracy - Civil Society",
+        NO_CATEGORY,
+    ],
+    "WEST": [
+        "WI - Declining West",
+        "WI - Western induced Regime Change/Internal Instability",
+        "WI - Hostile Global Order",
+        "WI - Specific Adversary Framing",
+        NO_CATEGORY,
+    ],
 }
 
 _clients: list[OpenAI] = []
@@ -196,11 +169,36 @@ def _build_label_repair_prompt(task: str, text: str, invalid_label: str, allowed
     )
 
 
+def _add_strict_allowlist_instruction(prompt: str, allowed_labels: Sequence[str]) -> str:
+    """Make the initial classification request use the same hard label constraint as repairs."""
+    allowed_lines = "\n".join(f"- {label}" for label in allowed_labels)
+    return (
+        f"{prompt.rstrip()}\n\n"
+        "Mandatory output format: return exactly one non-empty label from this allowlist "
+        "and nothing else.\n"
+        f"{allowed_lines}\n"
+    )
+
+
 def _truncate_text(text: str, max_chars: int) -> str:
     text = str(text).strip()
     if len(text) <= max_chars:
         return text
     return text[:max_chars].rsplit(" ", 1)[0] + " ..."
+
+
+def _source_country_from_row(row: dict[str, str] | pd.Series) -> str:
+    """Return the account's source country, including for legacy input files."""
+    source_country = str(row.get("source_country", "")).strip()
+    if source_country:
+        return source_country
+
+    category = str(row.get("category", "")).strip().casefold()
+    if category.startswith("china_"):
+        return "China"
+    if category.startswith("rf_") or category.startswith("russia_"):
+        return "Russia"
+    return "Unknown"
 
 
 def _call_model(client: OpenAI, prompt: str, max_tokens: int, cache_key_suffix: str | None = None) -> str:
@@ -261,8 +259,14 @@ def _call_task_model_with_validation(
     max_tokens: int,
     allowed_labels: Sequence[str],
     cache_key_suffix: str | None = None,
+    strict_initial_allowlist: bool = False,
 ) -> str:
-    first = _call_model(client, prompt, max_tokens=max_tokens, cache_key_suffix=cache_key_suffix)
+    initial_prompt = (
+        _add_strict_allowlist_instruction(prompt, allowed_labels)
+        if strict_initial_allowlist
+        else prompt
+    )
+    first = _call_model(client, initial_prompt, max_tokens=max_tokens, cache_key_suffix=cache_key_suffix)
     matched = _match_allowed_label(first, allowed_labels)
     if matched is not None:
         return matched
@@ -297,11 +301,17 @@ def _call_model_with_truncation(
     cache_key_suffix: str | None = None,
     task: str | None = None,
     allowed_labels: Sequence[str] | None = None,
+    strict_initial_allowlist: bool = False,
+    source_country: str = "Unknown",
 ) -> str:
     last_err = None
     for max_chars in cutoffs:
         truncated_text = _truncate_text(text, max_chars)
-        prompt = prompt_template.format(text=truncated_text, texts=truncated_text)
+        prompt = prompt_template.format(
+            text=truncated_text,
+            texts=truncated_text,
+            source_country=source_country,
+        )
         try:
             if task and allowed_labels is not None:
                 return _call_task_model_with_validation(
@@ -312,6 +322,7 @@ def _call_model_with_truncation(
                     max_tokens=max_tokens,
                     allowed_labels=allowed_labels,
                     cache_key_suffix=cache_key_suffix,
+                    strict_initial_allowlist=strict_initial_allowlist,
                 )
             return _call_model(client, prompt, max_tokens=max_tokens, cache_key_suffix=cache_key_suffix)
         except BadRequestError as exc:
@@ -489,6 +500,7 @@ def label_row(
                 max_tokens=FOCAL_MAX_TOKENS,
                 cutoffs=FOCAL_CUTOFFS,
                 cache_key_suffix="focal",
+                source_country=_source_country_from_row(row),
             )
         else:
             out[_prediction_column_name(FOCAL_LABEL_COLUMN, pred_prefix)] = ""
@@ -792,7 +804,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--random-seed", type=int, default=42, help="Random seed used with --random-sample")
     parser.add_argument("--type", nargs="+", default=None, help="One or more task types: aut dem west")
     parser.add_argument("--focal", action="store_true", help="Also label the focal country/actor when a content frame is found")
-    parser.add_argument("--prompt-version", type=int, choices=[1, 2], default=2, help="Prompt set version to use")
     parser.add_argument("--pred-prefix", default="", help="Prefix for prediction columns, e.g. TEST_")
     parser.add_argument("--debug-progress", action="store_true", help="Print extra progress info about queued, in-flight, and buffered rows")
     return parser
@@ -800,9 +811,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_arg_parser().parse_args(argv)
-    task_prompts = get_task_prompts(args.prompt_version)
-    focal_prompt = get_focal_prompt(args.prompt_version)
-    task_allowed_labels = TASK_ALLOWED_LABELS[args.prompt_version]
+    task_prompts = get_task_prompts()
+    focal_prompt = get_focal_prompt()
+    task_allowed_labels = TASK_ALLOWED_LABELS
     tasks = _parse_task_args(args.type, task_prompts)
     out_csv = args.out or _default_output_name(tasks, args.focal)
 

@@ -23,6 +23,7 @@ from DI_framing import (
     _read_csv_kwargs,
     _read_input_columns,
     _reservoir_sample_rows,
+    _source_country_from_row,
     init_clients,
 )
 from prompts import FOCAL_LABEL_COLUMN, get_focal_prompt
@@ -41,7 +42,7 @@ def _build_output_header(input_columns: list[str], focal_col: str) -> list[str]:
 
 def _default_output_name(pred_prefix: str) -> str:
     prefix = f"{pred_prefix.lower()}" if pred_prefix else ""
-    return f"labeled_{prefix}focal_v1.csv"
+    return f"labeled_{prefix}focal.csv"
 
 
 def _determine_resume_index(out_csv: str, focal_col: str) -> int:
@@ -83,7 +84,8 @@ def label_row(
             text=text,
             max_tokens=FOCAL_MAX_TOKENS,
             cutoffs=FOCAL_CUTOFFS,
-            cache_key_suffix="focal:v1",
+            cache_key_suffix="focal",
+            source_country=_source_country_from_row(row),
         )
     }
 
@@ -286,7 +288,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_arg_parser().parse_args(argv)
-    focal_prompt = get_focal_prompt(1)
+    focal_prompt = get_focal_prompt()
     out_csv = args.out or _default_output_name(args.pred_prefix)
 
     if args.chunk_size <= 0:

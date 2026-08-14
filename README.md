@@ -36,7 +36,6 @@ Examples:
 python3 DI_framing.py --csv input.csv --type aut
 python3 DI_framing.py --csv input.csv --type aut west --focal
 python3 DI_framing.py --csv input.csv --type dem,west --col body_text
-python3 DI_framing.py --csv input.csv --type aut dem west --prompt-version 1
 ```
 
 If `LLM_BASE_URL` is set, the scripts use that hosted OpenAI-compatible endpoint.
