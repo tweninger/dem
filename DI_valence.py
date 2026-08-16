@@ -34,7 +34,10 @@ from prompts import (
 )
 
 
-FOCAL_VALENCE_ALLOWED_LABELS = ["Pro", "Anti", "Neutral"]
+# GPT occasionally spells out the polarity despite the requested short labels.
+# Accept those equivalents at validation time, then always write the canonical form.
+FOCAL_VALENCE_ALLOWED_LABELS = ["Pro", "Anti", "Neutral", "Positive", "Negative"]
+FOCAL_VALENCE_ALIASES = {"Positive": "Pro", "Negative": "Anti"}
 DEFAULT_PARQUET = "derived/analysis_posts_clean.parquet"
 
 
@@ -247,7 +250,7 @@ def _label_prompt(
     cache_key_suffix: str,
     allowed_labels: list[str],
 ) -> str:
-    return _call_model_with_truncation(
+    label = _call_model_with_truncation(
         client=_get_client_for_row(row_idx),
         prompt_template="{text}",
         text=prompt,
@@ -258,6 +261,7 @@ def _label_prompt(
         allowed_labels=allowed_labels,
         strict_initial_allowlist=True,
     )
+    return FOCAL_VALENCE_ALIASES.get(label, label)
 
 
 def label_record(
@@ -271,12 +275,22 @@ def label_record(
         general_prompt_template if focal_actor in {"", "none", "other"} else focal_prompt_template
     )
     focal_prompt = _format_prompt(prompt_template, record)
-    return {FOCAL_VALENCE_LABEL_COLUMN: _label_prompt(
-        focal_prompt,
-        row_idx,
-        "valence:focal:v8",
-        FOCAL_VALENCE_ALLOWED_LABELS,
-    )}
+    try:
+        label = _label_prompt(
+            focal_prompt,
+            row_idx,
+            "valence:focal:canonical",
+            FOCAL_VALENCE_ALLOWED_LABELS,
+        )
+    except Exception as exc:
+        print(
+            "[warn] valence failed after retries; writing Neutral "
+            f"for row={row_idx:,} merge_key={record.get('merge_key', '')}: {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+            flush=True,
+        )
+        label = "Neutral"
+    return {FOCAL_VALENCE_LABEL_COLUMN: label}
 
 
 def label_sample(sample: pd.DataFrame, out_csv: str) -> None:
