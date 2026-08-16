@@ -380,7 +380,6 @@ def _full_post_query(parquet_path: str) -> str:
         FROM read_parquet(?)
         WHERE text IS NOT NULL
           AND trim(text) <> ''
-          AND post_year BETWEEN 2020 AND 2025
           AND (category LIKE 'China_%' OR category LIKE 'RF_%')
         ORDER BY merge_key, key_occurrence
     """
@@ -395,7 +394,6 @@ def _full_post_counts(parquet_path: str) -> tuple[int, int]:
             FROM read_parquet(?)
             WHERE text IS NOT NULL
               AND trim(text) <> ''
-              AND post_year BETWEEN 2020 AND 2025
               AND (category LIKE 'China_%' OR category LIKE 'RF_%')
             """,
             [parquet_path],
