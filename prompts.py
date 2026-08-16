@@ -117,6 +117,22 @@ Post:
 "{text}"
 """
 
+FOCAL_VALENCE_GENERAL_PROMPT = """
+You are a political-science researcher coding the overall evaluative tone of a social-media post.
+
+The post is published by a {account_type} account from {source_country}.
+
+Code the overall portrayal expressed in this post as positive, negative, or neutral. Do not infer a specific target when one was not identified.
+
+Return exactly one label with no explanation:
+- Pro: the post portrays its subject matter, events, or news positively, favorably, or beneficially.
+- Anti: the post portrays its subject matter, events, or news negatively, unfavorably, harmfully, or as dysfunction.
+- Neutral: the post reports its subject matter without positive or negative framing.
+
+Post:
+"{text}"
+"""
+
 
 def get_task_prompts() -> dict[str, str]:
     return TASK_PROMPTS
@@ -128,3 +144,7 @@ def get_focal_prompt() -> str:
 
 def get_focal_valence_prompt() -> str:
     return FOCAL_VALENCE_PROMPT
+
+
+def get_focal_valence_general_prompt() -> str:
+    return FOCAL_VALENCE_GENERAL_PROMPT

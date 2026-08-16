@@ -28,11 +28,12 @@ from DI_framing import (
 )
 from prompts import (
     FOCAL_VALENCE_LABEL_COLUMN,
+    get_focal_valence_general_prompt,
     get_focal_valence_prompt,
 )
 
 
-VALENCE_ALLOWED_LABELS = ["Pro", "Anti", "Neutral"]
+FOCAL_VALENCE_ALLOWED_LABELS = ["Pro", "Anti", "Neutral"]
 DEFAULT_PARQUET = "derived/analysis_posts_clean.parquet"
 
 
@@ -59,7 +60,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 def default_output_path(sample_size: int, seed: int) -> str:
     kind = "pilot" if sample_size <= 24 else "sample"
-    return f"derived/valence/focal_valence_{kind}_v8_n{sample_size}_seed{seed}.csv"
+    return f"derived/valence/focal_valence_{kind}_canonical_n{sample_size}_seed{seed}.csv"
 
 
 def build_stratified_sample(parquet_path: str, sample_size: int, seed: int) -> pd.DataFrame:
@@ -193,6 +194,20 @@ def _resume_count(out_csv: str, header: list[str]) -> int:
         return sum(1 for _ in reader)
 
 
+def print_valence_stats(out_csv: str) -> None:
+    """Print quick valence distributions for a completed labeling run."""
+    labeled = pd.read_csv(out_csv, low_memory=False)
+
+    focal_stats = pd.crosstab(
+        index=labeled["focal_actor"].fillna("None"),
+        columns=labeled[FOCAL_VALENCE_LABEL_COLUMN],
+    ).reindex(columns=["Pro", "Anti", "Neutral"], fill_value=0)
+    focal_stats["Total"] = focal_stats.sum(axis=1)
+
+    print("\nFocal valence by focal actor")
+    print(focal_stats.to_string())
+
+
 def _format_prompt(prompt_template: str, record: dict[str, object]) -> str:
     return prompt_template.format(
         source_country=record["source_country"],
@@ -204,7 +219,12 @@ def _format_prompt(prompt_template: str, record: dict[str, object]) -> str:
     )
 
 
-def _label_prompt(prompt: str, row_idx: int, cache_key_suffix: str) -> str:
+def _label_prompt(
+    prompt: str,
+    row_idx: int,
+    cache_key_suffix: str,
+    allowed_labels: list[str],
+) -> str:
     return _call_model_with_truncation(
         client=_get_client_for_row(row_idx),
         prompt_template="{text}",
@@ -213,7 +233,8 @@ def _label_prompt(prompt: str, row_idx: int, cache_key_suffix: str) -> str:
         cutoffs=LABEL_CUTOFFS,
         cache_key_suffix=cache_key_suffix,
         task="VALENCE",
-        allowed_labels=VALENCE_ALLOWED_LABELS,
+        allowed_labels=allowed_labels,
+        strict_initial_allowlist=True,
     )
 
 
@@ -221,14 +242,19 @@ def label_record(
     record: dict[str, object],
     row_idx: int,
     focal_prompt_template: str,
+    general_prompt_template: str,
 ) -> dict[str, str]:
-    if str(record.get("focal_actor", "")).strip() in {"", "None"}:
-        return {FOCAL_VALENCE_LABEL_COLUMN: "Not Applicable"}
-
-    focal_prompt = _format_prompt(focal_prompt_template, record)
-    return {
-        FOCAL_VALENCE_LABEL_COLUMN: _label_prompt(focal_prompt, row_idx, "valence:focal:v8")
-    }
+    focal_actor = str(record.get("focal_actor", "")).strip().casefold()
+    prompt_template = (
+        general_prompt_template if focal_actor in {"", "none", "other"} else focal_prompt_template
+    )
+    focal_prompt = _format_prompt(prompt_template, record)
+    return {FOCAL_VALENCE_LABEL_COLUMN: _label_prompt(
+        focal_prompt,
+        row_idx,
+        "valence:focal:v8",
+        FOCAL_VALENCE_ALLOWED_LABELS,
+    )}
 
 
 def label_sample(sample: pd.DataFrame, out_csv: str) -> None:
@@ -237,9 +263,11 @@ def label_sample(sample: pd.DataFrame, out_csv: str) -> None:
     start = _resume_count(out_csv, header)
     if start >= len(records):
         print(f"Output already contains all {len(records):,} sampled post-frame applications: {out_csv}")
+        print_valence_stats(out_csv)
         return
 
     focal_prompt_template = get_focal_valence_prompt()
+    general_prompt_template = get_focal_valence_general_prompt()
     handle, writer = _open_output_for_append(out_csv, header)
     try:
         next_submit = start
@@ -254,6 +282,7 @@ def label_sample(sample: pd.DataFrame, out_csv: str) -> None:
                     records[next_submit],
                     next_submit,
                     focal_prompt_template,
+                    general_prompt_template,
                 )
                 in_flight[future] = next_submit
                 next_submit += 1
@@ -269,6 +298,7 @@ def label_sample(sample: pd.DataFrame, out_csv: str) -> None:
                             records[next_submit],
                             next_submit,
                             focal_prompt_template,
+                            general_prompt_template,
                         )
                         in_flight[new_future] = next_submit
                         next_submit += 1
@@ -282,7 +312,9 @@ def label_sample(sample: pd.DataFrame, out_csv: str) -> None:
                     print(
                         f"[{next_write + 1:,}/{len(records):,}] "
                         f"{row['source_country']} {row['account_type']} "
-                        f"{row['frame_domain']} focal={row[FOCAL_VALENCE_LABEL_COLUMN]}",
+                        f"{row['frame_domain']}/{row['frame_subframe']} "
+                        f"focal_actor={row['focal_actor'] or 'None'} "
+                        f"focal_valence={row[FOCAL_VALENCE_LABEL_COLUMN]}",
                         flush=True,
                     )
                     next_write += 1
@@ -290,6 +322,7 @@ def label_sample(sample: pd.DataFrame, out_csv: str) -> None:
         handle.close()
 
     print(f"Wrote {out_csv}")
+    print_valence_stats(out_csv)
 
 
 def main(argv: list[str] | None = None) -> None:
